@@ -1,0 +1,1121 @@
+---
+title: 'AFS and deforestation: analysis via propensity score matching for Amazon and Cerrado'
+author: "Thiago Balbo Batista"
+date: "2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pre-analysis
+
+### Packages:
+```{r libraries, echo=FALSE}
+
+library(cobalt)
+library(ggplot2)
+library(MatchIt)
+library(readxl)
+
+```
+
+### Setting the database
+
+```{r libraries, echo=FALSE}
+
+# Importing the database:
+
+Base <- read_excel("Base_Diss.xlsx", sheet = 11)
+
+# Creating new covariates:
+
+Base['PRECTOT2'] <- Base$PRECTOT ^ 2
+Base['T2'] <- Base$T2M ^ 2
+
+
+attach(Base)
+
+
+```
+
+
+### Propensity Score Matching (PSM): Treatments
+
+The Propensity Score Matching (PSM) requires that we separate the sample between
+the treatment and control group, depending on the problem, hypothesis, and
+objective of the study. In this project, the hypothesis is that the expansion of Agroforestry Systems (AFS) in area, between the years 2006 and 2017, may have  
+contained the agricultural land expansion on forest land, therefore, the AFS 
+would have reduced the deforestation in the Amazon and Cerrado biomes.
+
+So, as the literature do not define the required area expansion to produce 
+effects on deforestation, I define four criterias to construct the treatment
+group of Brazilian municipalities (only those with positive percentual expansion):
+
+- Municipalities that show any increase above zero hectares between the years 2006 and 2017.
+
+-75% of the municipalities with the highest percentage growth of AFS (higher 
+than the first quartile of the sample).
+
+-50% of the municipalities with the highest percentage growth of AFS (higher 
+than the second quartile of the sample).
+
+-25% of the municipalities with the highest percentage growth of AFS (higher 
+than the third quartile of the sample).
+
+The graphics showing the kernel distribution of treatment and control groups composed by municipalities are designed below:
+
+
+```{r treatment graphics, echo=FALSE}
+
+dens_exp <- density(Exp)
+
+
+# First Treatment:
+
+dd <- with(dens_exp, data.frame(x, y))
+qplot(x, y, data = dd, geom = "line") + 
+  geom_ribbon(data = subset(dd, x >= 0), aes(ymax = y), ymin =0,
+    fill = "green", colour = NA, alpha =0.5) + 
+      scale_x_continuous(breaks = seq(0, 5000, by = 500), limits = c(0,5000))+
+       labs(x = "AFS growth (%) per municipality", y = "Density") +
+         ggtitle("Agroforestry Systems Growth in hectares (%)" ) +
+             theme(plot.title = element_text(hjust = 0.5))
+
+## Second Treatment:
+
+dd <- with(dens_exp, data.frame(x, y))
+qplot(x, y, data = dd, geom = "line") + 
+  geom_ribbon(data = subset(dd, x >= 57), aes(ymax = y), ymin =0,
+    fill = "green", colour = NA, alpha =0.5) + 
+      scale_x_continuous(breaks = seq(57, 5000, by = 502), limits = c(0,5000)) +
+        labs(x = "AFS growth (%) per municipality", y = "Density") +
+         ggtitle("Agroforestry Systems Growth in hectares (%)" ) +
+             theme(plot.title = element_text(hjust = 0.5)) 
+
+## Third Treatment:
+
+dd <- with(dens_exp, data.frame(x, y))
+qplot(x, y, data = dd, geom = "line") + 
+  geom_ribbon(data = subset(dd, x >= 215), aes(ymax = y), ymin =0,
+    fill = "green", colour = NA, alpha =0.5) + 
+      scale_x_continuous(breaks = seq(215, 5000, by = 504), limits = c(0,5000))+
+       labs(x = "AFS growth (%) per municipality", y = "Density") +
+         ggtitle("Agroforestry Systems Growth in hectares (%)" ) +
+             theme(plot.title = element_text(hjust = 0.5)) 
+
+
+## Fourth Treatment:
+
+dd <- with(dens_exp, data.frame(x, y))
+qplot(x, y, data = dd, geom = "line") + 
+  geom_ribbon(data = subset(dd, x >= 596), aes(ymax = y), ymin =0,
+    fill = "green", colour = NA, alpha =0.5) + 
+      scale_x_continuous(breaks = seq(596, 5000, by = 508), limits = c(0,5000))+
+        labs(x = "AFS growth (%) per municipality", y = "Density") +
+         ggtitle("Agroforestry Systems Growth in hectares (%)" ) +
+             theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+## Analysis
+
+### First treatment
+
+#### Unmatched sample
+
+```{r Unmatched sample, echo=FALSE}
+
+# Results: Unmatched sample
+ 
+# 2017
+
+mod_un_17 <- lm(Desm_2017 ~ Tratamento, data = Base )
+
+summary(mod_un_17)
+
+mod_un_c_17 <- lm(Desm_2017 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+        Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_17)
+
+
+# 2018
+
+mod_un_18 <- lm(Desm_2018 ~ Tratamento, data = Base )
+
+summary(mod_un_18)
+
+mod_un_c_18 <- lm(Desm_2018 ~ Tratamento + Rec.Hid + Prop + Educ + Financ + 
+      Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_18)
+
+# 2019
+
+mod_un_19 <- lm(Desm_2019 ~ Tratamento, data = Base )
+
+summary(mod_un_19)
+
+mod_un_c_19 <- lm(Desm_2019 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +  Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_19)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m1 <- matchit(Tratamento ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m1)
+
+
+# The Overlap
+
+k1 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k1
+
+# Covariates Balance
+
+b1 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m1_df <- match.data(m1)
+
+mod_1_2017 <- lm(Desm_2017 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m1_df, weights = weights)
+
+summary(mod_1_2017)
+
+# 2018
+
+mod_1_2018 <- lm(Desm_2018 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m1_df, weights = weights)
+
+summary(mod_1_2018)
+
+# 2019
+
+mod_1_2019 <- lm(Desm_2019 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m1_df, weights = weights)
+
+summary(mod_1_2019)
+
+
+```
+
+### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m2 <- matchit(Tratamento ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m2)
+
+
+# The Overlap
+
+k2 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k2
+
+# Covariates Balance
+
+b2 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m2_df <- match.data(m2)
+
+mod_2_2017 <- lm(Desm_2017 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m2_df, weights = weights)
+
+summary(mod_2_2017)
+
+# 2018
+
+mod_2_2018 <- lm(Desm_2018 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m2_df, weights = weights)
+
+summary(mod_2_2018)
+
+# 2019
+
+mod_2_2019 <- lm(Desm_2019 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m2_df, weights = weights)
+
+summary(mod_2_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m3 <- matchit(Tratamento ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m3)
+
+
+# The Overlap
+
+k3 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k3
+
+# Covariates Balance
+
+b3 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m3_df <- match.data(m3)
+
+mod_3_2017 <- lm(Desm_2017 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m3_df, weights = weights)
+
+summary(mod_3_2017)
+
+# 2018
+
+mod_3_2018 <- lm(Desm_2018 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m3_df, weights = weights)
+
+summary(mod_3_2018)
+
+# 2019
+
+mod_3_2019 <- lm(Desm_2019 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m3_df, weights = weights)
+
+summary(mod_3_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m4 <- matchit(Tratamento ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m4)
+
+
+# The Overlap
+
+k4 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k4
+
+# Covariates Balance
+
+b4 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m4_df <- match.data(m4)
+
+mod_4_2017 <- lm(Desm_2017 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m4_df, weights = weights)
+
+summary(mod_4_2017)
+
+# 2018
+
+mod_4_2018 <- lm(Desm_2018 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m4_df, weights = weights)
+
+summary(mod_4_2018)
+
+# 2019
+
+mod_4_2019 <- lm(Desm_2019 ~ Tratamento + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m4_df, weights = weights)
+
+summary(mod_4_2019)
+
+
+```
+
+
+### Second Treatment
+
+#### Unmatched sample
+
+```{r Unmatched sample, echo=FALSE}
+
+# Results: Unmatched sample
+ 
+# 2017
+
+mod_un_17_Q1 <- lm(Desm_2017 ~ Tratamento_Q1, data = Base )
+
+summary(mod_un_17_Q1)
+
+mod_un_c_17_Q1 <- lm(Desm_2017 ~  Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+        Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_17_Q1)
+
+
+# 2018
+
+mod_un_18_Q1 <- lm(Desm_2018 ~  Tratamento_Q1, data = Base )
+
+summary(mod_un_18_Q1)
+
+mod_un_c_18_Q1 <- lm(Desm_2018 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ + 
+      Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_18_Q1)
+
+# 2019
+
+mod_un_19_Q1 <- lm(Desm_2019 ~ Tratamento_Q1, data = Base )
+
+summary(mod_un_19_Q1)
+
+mod_un_c_19_Q1 <- lm(Desm_2019 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +  Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_19_Q1)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m5 <- matchit(Tratamento_Q1 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m5)
+
+
+# The Overlap
+
+k5 <- bal.plot(m5, var.name = "distance", which = "both", mirror = FALSE)
+k5
+
+# Covariates Balance
+
+b5 <- love.plot(m5, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m5_df <- match.data(m5)
+
+mod_5_2017 <- lm(Desm_2017 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m5_df, weights = weights)
+
+summary(mod_5_2017)
+
+# 2018
+
+mod_5_2018 <- lm(Desm_2018 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m5_df, weights = weights)
+
+summary(mod_5_2018)
+
+# 2019
+
+mod_5_2019 <- lm(Desm_2019 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m5_df, weights = weights)
+
+summary(mod_5_2019)
+
+
+```
+
+### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m6 <- matchit(Tratamento_Q1 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m6)
+
+
+# The Overlap
+
+k6 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k6
+
+# Covariates Balance
+
+b6 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m6_df <- match.data(m6)
+
+mod_6_2017 <- lm(Desm_2017 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m6_df, weights = weights)
+
+summary(mod_6_2017)
+
+# 2018
+
+mod_6_2018 <- lm(Desm_2018 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m6_df, weights = weights)
+
+summary(mod_6_2018)
+
+# 2019
+
+mod_6_2019 <- lm(Desm_2019 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m6_df, weights = weights)
+
+summary(mod_6_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m7 <- matchit(Tratamento_Q1 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m7)
+
+
+# The Overlap
+
+k7 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k7
+
+# Covariates Balance
+
+b7 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m7_df <- match.data(m7)
+
+mod_7_2017 <- lm(Desm_2017 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m7_df, weights = weights)
+
+summary(mod_7_2017)
+
+# 2018
+
+mod_7_2018 <- lm(Desm_2018 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m7_df, weights = weights)
+
+summary(mod_7_2018)
+
+# 2019
+
+mod_7_2019 <- lm(Desm_2019 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m7_df, weights = weights)
+
+summary(mod_7_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m8 <- matchit(Tratamento_Q1 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m8)
+
+
+# The Overlap
+
+k8 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k8
+
+# Covariates Balance
+
+b8 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m8_df <- match.data(m8)
+
+mod_8_2017 <- lm(Desm_2017 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m8_df, weights = weights)
+
+summary(mod_8_2017)
+
+# 2018
+
+mod_8_2018 <- lm(Desm_2018 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m8_df, weights = weights)
+
+summary(mod_8_2018)
+
+# 2019
+
+mod_8_2019 <- lm(Desm_2019 ~ Tratamento_Q1 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m8_df, weights = weights)
+
+summary(mod_8_2019)
+
+```
+
+
+
+### Third Treatment
+
+#### Unmatched sample
+
+```{r Unmatched sample, echo=FALSE}
+
+# Results: Unmatched sample
+ 
+# 2017
+
+mod_un_17_Q2 <- lm(Desm_2017 ~ Tratamento_Q2, data = Base )
+
+summary(mod_un_17_Q2)
+
+mod_un_c_17_Q2 <- lm(Desm_2017 ~  Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+        Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_17_Q2)
+
+
+# 2018
+
+mod_un_18_Q2 <- lm(Desm_2018 ~  Tratamento_Q2, data = Base )
+
+summary(mod_un_18_Q2)
+
+mod_un_c_18_Q2 <- lm(Desm_2018 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ + 
+      Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_18_Q2)
+
+# 2019
+
+mod_un_19_Q2 <- lm(Desm_2019 ~ Tratamento_Q2, data = Base )
+
+summary(mod_un_19_Q2)
+
+mod_un_c_19_Q2 <- lm(Desm_2019 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +  Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_19_Q2)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m9 <- matchit(Tratamento_Q2 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m9)
+
+
+# The Overlap
+
+k9 <- bal.plot(m9, var.name = "distance", which = "both", mirror = FALSE)
+k9
+
+# Covariates Balance
+
+b9 <- love.plot(m9, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m9_df <- match.data(m9)
+
+mod_9_2017 <- lm(Desm_2017 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m9_df, weights = weights)
+
+summary(mod_9_2017)
+
+# 2018
+
+mod_9_2018 <- lm(Desm_2018 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m9_df, weights = weights)
+
+summary(mod_9_2018)
+
+# 2019
+
+mod_9_2019 <- lm(Desm_2019 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m9_df, weights = weights)
+
+summary(mod_9_2019)
+
+
+```
+
+### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m10 <- matchit(Tratamento_Q2 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m10)
+
+
+# The Overlap
+
+k10 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k10
+
+# Covariates Balance
+
+b10 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m10_df <- match.data(m10)
+
+mod_10_2017 <- lm(Desm_2017 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m10_df, weights = weights)
+
+summary(mod_10_2017)
+
+# 2018
+
+mod_10_2018 <- lm(Desm_2018 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m10_df, weights = weights)
+
+summary(mod_10_2018)
+
+# 2019
+
+mod_10_2019 <- lm(Desm_2019 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m10_df, weights = weights)
+
+summary(mod_10_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m11 <- matchit(Tratamento_Q2 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m11)
+
+
+# The Overlap
+
+k11 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k11
+
+# Covariates Balance
+
+b11 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m11_df <- match.data(m11)
+
+mod_11_2017 <- lm(Desm_2017 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m11_df, weights = weights)
+
+summary(mod_11_2017)
+
+# 2018
+
+mod_11_2018 <- lm(Desm_2018 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m11_df, weights = weights)
+
+summary(mod_11_2018)
+
+# 2019
+
+mod_11_2019 <- lm(Desm_2019 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m11_df, weights = weights)
+
+summary(mod_11_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m12 <- matchit(Tratamento_Q2 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m12)
+
+
+# The Overlap
+
+k12 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k12
+
+# Covariates Balance
+
+b12 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m12_df <- match.data(m12)
+
+mod_12_2017 <- lm(Desm_2017 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m12_df, weights = weights)
+
+summary(mod_12_2017)
+
+# 2018
+
+mod_12_2018 <- lm(Desm_2018 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m12_df, weights = weights)
+
+summary(mod_12_2018)
+
+# 2019
+
+mod_12_2019 <- lm(Desm_2019 ~ Tratamento_Q2 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m12_df, weights = weights)
+
+summary(mod_12_2019)
+
+```
+
+
+### Fourth Treatment
+
+#### Unmatched sample
+
+```{r Unmatched sample, echo=FALSE}
+
+# Results: Unmatched sample
+ 
+# 2017
+
+mod_un_17_Q3 <- lm(Desm_2017 ~ Tratamento_Q3, data = Base )
+
+summary(mod_un_17_Q3)
+
+mod_un_c_17_Q3 <- lm(Desm_2017 ~  Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+        Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_17_Q3)
+
+
+# 2018
+
+mod_un_18_Q3 <- lm(Desm_2018 ~  Tratamento_Q3, data = Base )
+
+summary(mod_un_18_Q3)
+
+mod_un_c_18_Q3 <- lm(Desm_2018 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ + 
+      Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_18_Q3)
+
+# 2019
+
+mod_un_19_Q3 <- lm(Desm_2019 ~ Tratamento_Q3, data = Base )
+
+summary(mod_un_19_Q3)
+
+mod_un_c_19_Q3 <- lm(Desm_2019 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +  Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base )
+
+summary(mod_un_c_19_Q3)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m13 <- matchit(Tratamento_Q3 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m13)
+
+
+# The Overlap
+
+k13 <- bal.plot(m13, var.name = "distance", which = "both", mirror = FALSE)
+k13
+
+# Covariates Balance
+
+b13 <- love.plot(m13, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m13_df <- match.data(m13)
+
+mod_13_2017 <- lm(Desm_2017 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m13_df, weights = weights)
+
+summary(mod_13_2017)
+
+# 2018
+
+mod_13_2018 <- lm(Desm_2018 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m13_df, weights = weights)
+
+summary(mod_13_2018)
+
+# 2019
+
+mod_13_2019 <- lm(Desm_2019 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m13_df, weights = weights)
+
+summary(mod_13_2019)
+
+
+```
+
+### Matching - Nearest Neighbor (NN) 1:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 1:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m14 <- matchit(Tratamento_Q3 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE)
+
+summary(m14)
+
+
+# The Overlap
+
+k14 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k14
+
+# Covariates Balance
+
+b14 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m14_df <- match.data(m14)
+
+mod_14_2017 <- lm(Desm_2017 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m14_df, weights = weights)
+
+summary(mod_14_2017)
+
+# 2018
+
+mod_14_2018 <- lm(Desm_2018 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m14_df, weights = weights)
+
+summary(mod_14_2018)
+
+# 2019
+
+mod_14_2019 <- lm(Desm_2019 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m14_df, weights = weights)
+
+summary(mod_14_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.25 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.25, echo=FALSE}
+
+# Matching:
+
+m15 <- matchit(Tratamento_Q3 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.25, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m15)
+
+
+# The Overlap
+
+k15 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k15
+
+# Covariates Balance
+
+b15 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m15_df <- match.data(m15)
+
+mod_15_2017 <- lm(Desm_2017 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m15_df, weights = weights)
+
+summary(mod_15_2017)
+
+# 2018
+
+mod_15_2018 <- lm(Desm_2018 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m15_df, weights = weights)
+
+summary(mod_15_2018)
+
+# 2019
+
+mod_15_2019 <- lm(Desm_2019 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m15_df, weights = weights)
+
+summary(mod_15_2019)
+
+```
+
+#### Matching - Nearest Neighbor (NN) 2:1 - caliper: 0.10 - With Replacement
+
+```{r Matching - NN 2:1 - caliper: 0.10, echo=FALSE}
+
+# Matching:
+
+m16 <- matchit(Tratamento_Q3 ~ Rec.Hid + Prop + Educ + Financ + Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data = Base, caliper = 0.10, 
+                     method = 'nearest', discard = 'treat', replace = TRUE, 
+                        ratio = 2)
+
+summary(m16)
+
+
+# The Overlap
+
+k16 <- bal.plot(m1, var.name = "distance", which = "both", mirror = FALSE)
+k16
+
+# Covariates Balance
+
+b16 <- love.plot(m1, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
+
+
+# ATT Result
+
+# 2017
+
+m16_df <- match.data(m16)
+
+mod_16_2017 <- lm(Desm_2017 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m16_df, weights = weights)
+
+summary(mod_16_2017)
+
+# 2018
+
+mod_16_2018 <- lm(Desm_2018 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m16_df, weights = weights)
+
+summary(mod_16_2018)
+
+# 2019
+
+mod_16_2019 <- lm(Desm_2019 ~ Tratamento_Q3 + Rec.Hid + Prop + Educ + Financ +
+                Assoc + Gen +  Pot.baixo + PRECTOT + T2M + PRECTOT2 + T2, data =                    m16_df, weights = weights)
+
+summary(mod_16_2019)
+
+```
+
+### Results
+
+As we can see above, in most of the estimations, the overlapping areas between the treatment and control groups get more adjusted after the matchings. Also, we can check that the covariables turn balanced after the matching because most of the absolute standardized mean differences are less than 10%, and the variance ratios get closer to one too.
+
+Finally, most of the results do not show statistical significance. The exceptions are the results on the second treatment for the years 2017 and 2019, with coefficients of -0.107406 and -0.110650, respectively.
+
+Thus, the results do not show systematical evidences that the AFS expansion reduced the deforestation on the Amazon and Cerrado biomes.
+
+## Conclusion
+
+These results show that the AFS expansion didn't reduce deforestation in the years from 2017 to 2019. Some of the possibilities are:
+
+- The mitigation benefits of AFS are accomplished in the long-term, so if the expansion occurred around the year 2017, the benefits may happen in the next years. 
+
+- The AFS implementations possibly improved agricultural productivity, so perhaps occurred agricultural land expansion to increase rural production.
+
+- The AFS expansion may have occurred in a commercial model, thus do not necessarily pursue agroecological goals.
+
+
+
+
+
+
