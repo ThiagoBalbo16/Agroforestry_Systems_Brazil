@@ -1100,9 +1100,9 @@ summary(mod_16_2019)
 
 As we can see above, in most of the estimations, the overlapping areas between the treatment and control groups get more adjusted after the matchings. Also, we can check that the covariables turn balanced after the matching because most of the absolute standardized mean differences are less than 10%, and the variance ratios get closer to one too.
 
-Finally, most of the results do not show statistical significance. The exceptions are the results on the second treatment for the years 2017 and 2019, with coefficients of -0.107406 and -0.110650, respectively.
+Finally, most of the results do not show statistical significance. The exceptions are the results on the second treatment for the years 2017 and 2019, with coefficients of -0.107406 and -0.110650, respectively.These results mean that deforestation was lower in municipalities that AFS increased from 2006 to 2017.
 
-Thus, the results do not show systematical evidences that the AFS expansion reduced the deforestation on the Amazon and Cerrado biomes.
+Thus, the results do not show systematic evidence that the AFS expansion reduced deforestation on the Amazon and Cerrado biomes.
 
 ## Conclusion
 
