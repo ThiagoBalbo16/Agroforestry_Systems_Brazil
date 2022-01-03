@@ -12,7 +12,7 @@ present AFS expansion between the years 2006 and 2017. The objective is to estim
 which are standardized by deforestation in kilometer square per municipality in years from 2008 to 2019. The hypothesis is that AFS expansion reduced the deforestation by increase of
 agricultural productivity, recovery of degraded land or fixation of the rural producer on land.</div>
 
-Lastly, this project is based on my Master's dissertation (available only in Portuguese) and you can check it [here](https://www.prppg.ufpr.br/siga/visitante/trabalhoConclusaoWS?idpessoal=117872&idprograma=40001016024P0&anobase=2021&idtc=104) for more details.
+Lastly, this project is based on my Master's thesis (available only in Portuguese) and you can check it [here](https://www.prppg.ufpr.br/siga/visitante/trabalhoConclusaoWS?idpessoal=117872&idprograma=40001016024P0&anobase=2021&idtc=104) for more details.
 
 ## Methodology
 
