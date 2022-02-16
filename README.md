@@ -7,10 +7,7 @@ based in the Rural Census from *Instituto Brasileiro de Geografia e Estatística
 and sometimes are strategic tools in public policies to recover deforested areas, in this project I evaluate the effects of the AFS expansion
 on Brazilian municipalities located in the Amazon and Cerrado biomes.</div>
 
-<div align="justify">For this purpose, I use the Propensity Score Matching (PSM) to compare municipalities that present AFS expansion and municipalities that do not 
-present AFS expansion between the years 2006 and 2017. The objective is to estimate the average treatment effect on treated (ATT) by deforestation values from 2017 to 2019, 
-which are standardized by deforestation in kilometer square per municipality in years from 2008 to 2019. The hypothesis is that AFS expansion reduced the deforestation by increase of
-agricultural productivity, recovery of degraded land or fixation of the rural producer on land.</div>
+<div align="justify">For this purpose, I use the Propensity Score Matching (PSM) to compare municipalities that present AFS expansion and municipalities that do not present AFS expansion between the years 2006 and 2017. The objective is to estimate the average treatment effect on treated (ATT) by deforestation values from 2017 to 2019, which are standardized by deforestation in kilometer square per municipality in years from 2008 to 2019. The hypothesis is that AFS expansion reduced deforestation by the increase of agricultural productivity, recovery of degraded land, or fixation of the rural producer on land.</div>
 
 Lastly, this project is based on my Master's thesis (available only in Portuguese) and you can check it [here](https://www.prppg.ufpr.br/siga/visitante/trabalhoConclusaoWS?idpessoal=117872&idprograma=40001016024P0&anobase=2021&idtc=104) for more details.
 
